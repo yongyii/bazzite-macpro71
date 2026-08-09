@@ -1,0 +1,4 @@
+kargs = [
+  "rd.driver.blacklist=t2bce_audio",
+  "modprobe.blacklist=t2bce_audio",
+]

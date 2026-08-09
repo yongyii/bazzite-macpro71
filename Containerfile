@@ -4,7 +4,7 @@ COPY build_files /
 COPY system_files /system_files
 
 # Base Image
-FROM ghcr.io/ublue-os/bazzite:stable@sha256:b923f92d5a5b59eb992e269383eba2744601052da9d3d1595f76e79aa6ce2df0
+FROM ghcr.io/ublue-os/bazzite:stable
 ## Other possible base images include:
 # FROM ghcr.io/ublue-os/bazzite:testing
 # FROM ghcr.io/ublue-os/aurora:stable
@@ -31,10 +31,38 @@ FROM ghcr.io/ublue-os/bazzite:stable@sha256:b923f92d5a5b59eb992e269383eba2744601
 ## the following RUN directive does all the things required to run "build.sh" as recommended.
 
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
-    --mount=type=cache,dst=/var/cache \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/tmp \
     /ctx/build.sh
+
+
+# Generate the bootable initramfs for the T2 kernel.
+# bootc/OSTree expects this beside vmlinuz in /usr/lib/modules/$KVER/.
+RUN set -eux; \
+    KVER="$(find /usr/lib/modules \
+      -mindepth 1 -maxdepth 1 -type d \
+      -printf '%f\n' \
+      | grep '\.t2\.fc' \
+      | sort -V \
+      | tail -1)"; \
+    test -n "$KVER"; \
+    echo "Generating initramfs for T2 kernel: $KVER"; \
+    test -x /usr/bin/dracut; \
+    test -d /usr/lib/dracut/modules.d/50ostree; \
+    test -f "/usr/lib/modules/${KVER}/vmlinuz"; \
+    depmod -a "$KVER"; \
+    dracut \
+      --force \
+      --no-hostonly \
+      --add "ostree" \
+      --add-drivers "nvme nvme_core t2bce_dma t2bce_core t2bce_vhci t2bce_audio" \
+      "/usr/lib/modules/${KVER}/initramfs.img" \
+      "$KVER"; \
+    test -s "/usr/lib/modules/${KVER}/initramfs.img"; \
+    ls -lh \
+      "/usr/lib/modules/${KVER}/vmlinuz" \
+      "/usr/lib/modules/${KVER}/initramfs.img"
+
 
 ### LINTING
 ## Verify final image and contents are correct.
