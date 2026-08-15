@@ -127,6 +127,16 @@ dnf5 -y copr disable sharpenedblade/t2linux || true
 rm -f /etc/yum.repos.d/terra*.repo
 rm -f /usr/lib/yum.repos.d/terra*.repo
 
+# Remove packages only needed while preparing the T2 kernel.
+# Keeping build dependencies in the final bootc image can confuse
+# rpm-ostree package metadata during rechunking.
+dnf5 -y remove \
+  bison \
+  flex \
+  openssl-devel \
+  elfutils-libelf-devel \
+  || true
+
 dnf5 clean all
 
 # ------------------------------------------------------------
