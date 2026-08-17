@@ -1,0 +1,40 @@
+FROM quay.io/fedora/fedora-bootc:44
+
+RUN dnf -y install \
+    anaconda \
+    anaconda-install-env-deps \
+    anaconda-dracut \
+    dracut-config-generic \
+    dracut-network \
+    net-tools \
+    squashfs-tools \
+    grub2-efi-x64-cdboot \
+    python3-mako \
+    'lorax-templates-*' \
+    biosdevname \
+    prefixdevname \
+    anaconda-webui \
+    slitherer \
+    && dnf clean all
+
+RUN mkdir -p /boot/efi \
+    && cp -ra /usr/lib/efi/*/*/EFI /boot/efi
+
+RUN mkdir -p /var/mnt
+
+RUN mkdir -p /usr/lib/bootc/install && \
+    printf '[install]\nroot-fs-type = "ext4"\n' \
+    > /usr/lib/bootc/install/10-rootfs.toml
+
+# MacPro7,1 installer safety policy:
+# require explicit storage selection instead of Anaconda's
+# automated-install behavior of preselecting every available disk.
+COPY patch-anaconda-no-default-disks.py /tmp/patch-anaconda-no-default-disks.py
+RUN python3 /tmp/patch-anaconda-no-default-disks.py \
+    && rm -f /tmp/patch-anaconda-no-default-disks.py
+
+# MacPro7,1 disk-identification safety:
+# expose model, size, device, serial, WWN and bus-id when available.
+COPY patch-anaconda-disk-details.py /tmp/patch-anaconda-disk-details.py
+RUN python3 /tmp/patch-anaconda-disk-details.py \
+    && rm -f /tmp/patch-anaconda-disk-details.py
